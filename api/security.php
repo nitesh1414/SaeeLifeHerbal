@@ -38,7 +38,7 @@ function auditEvent(?int $actor,string $action,string $subject=''): void {
 }
 
 function auditAdminAction(?array $actor,string $action,array $data): void {
-    $actions=['upload','save_page','delete_page','save_social','delete_social','save_media','delete_media','verify_kyc','payout_status','run_royalty','order_status','save_product','save_slide','save_settings','save_rule','delete_product','delete_slide','delete_rule','record_purchase','record_payout'];
+    $actions=['upload','save_page','delete_page','save_social','delete_social','save_media','delete_media','verify_kyc','payout_status','run_royalty','order_status','save_product','save_slide','save_settings','save_rule','delete_product','delete_slide','delete_rule','record_purchase','record_payout','create_staff','update_staff'];
     if(!$actor||empty($actor['is_admin'])||!in_array($action,$actions,true))return;
     $subject=(string)($data['id']??($data['member_code']??($data['period']??'')));
     try{auditEvent((int)$actor['id'],$action,$subject);}catch(Throwable $e){error_log('Audit recording failed: '.$e->getMessage());}
