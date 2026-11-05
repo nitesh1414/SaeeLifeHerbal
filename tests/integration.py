@@ -27,6 +27,28 @@ p=admin.call('save_product',{'name':'Integration product','category':'Test','des
 products=admin.call('bootstrap')['products'];assert next(x for x in products if x['id']==p['id'])['content']=='<p>Safe</p>'
 admin.call('save_page',{'slug':'integration-test','title':'Test page','content':'<p onclick="bad()">Safe<script>bad()</script></p>','published':'on'})
 assert next(x for x in admin.call('bootstrap')['pages'] if x['slug']=='integration-test')['content']=='<p>Safe</p>'
+# Save all admin-managed content, then read it back in a new session.
+page_id=next(x['id'] for x in admin.call('admin_pages') if x['slug']=='integration-test')
+admin.call('save_page',{'id':page_id,'slug':'integration-test','title':'Saved page','content':'<p>Persistent content</p>','published':'on','show_nav':'on'})
+slide=admin.call('save_slide',{'title':'Saved slide','image':'assets/hero-farm.jpg','duration':5000,'show_text':'on','effect':'fade'})
+social=admin.call('save_social',{'name':'Saved link','url':'https://example.com','icon':'link'})
+rule=admin.call('save_rule',{'kind':'milestone','threshold':999,'amount':1})
+# Invalid or stale record IDs must never report a successful save.
+missing=2147483647
+admin.call('save_product',{'id':missing,'name':'Missing','category':'Test','description':'Test','price':1,'direct_commission':0,'grand_commission':0,'content':''},404)
+admin.call('save_page',{'id':missing,'slug':'missing-page','title':'Missing','content':''},404)
+admin.call('save_slide',{'id':missing,'title':'Missing','image':'assets/hero-farm.jpg','duration':5000,'effect':'fade'},404)
+admin.call('save_social',{'id':missing,'name':'Missing','url':'https://example.com','icon':'link'},404)
+admin.call('save_rule',{'id':missing,'kind':'milestone','threshold':999,'amount':1},404)
+admin.call('save_settings',{'not_a_real_setting':'value'},400)
+fresh=Client();fresh.call('admin_login',{'email':EMAIL,'password':PASSWORD})
+assert fresh.call('admin_settings')['hero_shop_button']=='Shop now'
+assert any(x['id']==p['id'] and x['name']=='Integration product' for x in fresh.call('admin_products'))
+assert any(x['id']==page_id and x['title']=='Saved page' for x in fresh.call('admin_pages'))
+assert any(x['id']==slide['id'] and x['title']=='Saved slide' for x in fresh.call('admin_slides'))
+assert any(x['id']==social['id'] and x['name']=='Saved link' for x in fresh.call('admin_socials'))
+assert any(x['id']==rule['id'] and x['threshold']==999 for x in fresh.call('admin_rules'))
+assert any(x['slug']=='integration-test' and x['title']=='Saved page' for x in Client().call('bootstrap')['pages'])
 def register(name,sponsor=''):
     c=Client();r=c.call('register',{'name':name,'phone':'1234567890','email':name.lower()+'@example.test','password':'Testing123!','sponsor_code':sponsor});return c,r['user']['member_code']
 # Staff authorization is enforced server-side, independently of navigation.
@@ -176,4 +198,4 @@ challenge2.call('mfa_disable',{'password':'incorrect','code':enabled['recovery_c
 challenge2.call('mfa_disable',{'password':owner_password,'code':enabled['recovery_codes'][2]})
 assert not challenge2.call('admin_security')['enabled'];challenge2.call('logout',{})
 last=Client();assert 'user' in last.call('admin_login',{'email':EMAIL,'password':owner_password})
-print('PASS: MFA, role authorization, email/recovery (if mail sink enabled), upload, order checkout and confirmation, CMS sanitization, registration, milestone, 2-level purchase, duplicate receipt, royalty, KYC, partial refunds and payout transitions')
+print('PASS: admin persistence, MFA, role authorization, email/recovery (if mail sink enabled), upload, order checkout and confirmation, CMS sanitization, registration, milestone, 2-level purchase, duplicate receipt, royalty, KYC, partial refunds and payout transitions')

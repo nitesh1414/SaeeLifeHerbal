@@ -33,3 +33,17 @@ test('admin header styles and early script are included in the cached shell', ()
   assert.match(css, /html\.admin-route \.announcement\s*,\s*html\.admin-route \.header\s*\{\s*display\s*:\s*none\s*\}/);
   assert.ok(sw.includes('./assets/admin-route.js'));
 });
+
+test('header visibility follows named pages and history navigation', () => {
+  const classes = new Set();
+  const location = {hash:'', pathname:'/shop/admin/products.php'};
+  const handlers = {};
+  const document = {documentElement:{classList:{toggle(name,on){if(on)classes.add(name);else classes.delete(name);}}}};
+  const window = {addEventListener(name,fn){handlers[name]=fn;}};
+  vm.runInNewContext(read('assets/admin-route.js'),{document,location,window});
+  assert.equal(classes.has('admin-route'),true);
+  location.pathname='/shop/website/products.php';handlers['app:navigate']();
+  assert.equal(classes.has('admin-route'),false);
+  location.pathname='/shop/admin/pages.php';handlers.popstate();
+  assert.equal(classes.has('admin-route'),true);
+});

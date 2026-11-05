@@ -9,9 +9,23 @@ A responsive core-PHP/MySQL agricultural product website, CMS and member portal.
 3. With the site still offline, run `php api/encrypt-existing.php`. This converts legacy member KYC/bank fields and payout bank snapshots to authenticated AES-256-GCM ciphertext in a transaction and clears the old plaintext columns. It is safe to run again after a completed migration; it stops if encrypted and plaintext values conflict. Keep historical backups protected: this script does not alter previous backups. Restore and verify backups and the key before allowing real use.
 4. Create the first administrator once: `php api/create-admin.php 'Admin Name' admin@example.com 'a-strong-password'`. The administrator is also the default company sponsor, `COMPANY`. Use a unique strong password, and avoid leaving the command in shared shell history.
 5. Make `uploads/` writable by PHP. Set `upload_max_filesize` to at least `30M` and `post_max_size` above that for video uploads. On Apache, the included `uploads/.htaccess` blocks script execution. On Nginx or another server, explicitly disable script execution in `/uploads/` and deny public access to `.git`, SQL files, test files, backups and configuration. Serve over HTTPS and configure the server to process `.php` files. For local development use `php -S 0.0.0.0:8000` from the project root.
-6. Visit `/#admin`, add real products, slides, pages, social links and business details before launch. Seeded products and product imagery are illustrative; seeded products are marked as samples and cannot be ordered until edited. The company sponsor ID must belong to an existing member.
+6. Open `/admin/index.php` to sign in and `/website/index.php` for the public website. Add real products, slides, pages, social links and business details before launch. Seeded products and product imagery are illustrative; seeded products are marked as samples and cannot be ordered until edited. The company sponsor ID must belong to an existing member.
 
-If PHP or the database is unavailable, the public shell falls back to sample content for a visual preview; login, checkout and admin are not operational in that mode. PWA installability requires HTTPS or localhost. Offline caching is limited to the public shell, not live account or API data.
+If PHP or the database is unavailable, the root public shell can show sample content for a visual preview; login, checkout and admin **cannot save anything** in that mode. The named PHP pages require a PHP web server, not a static preview or a `file://` URL. PWA installability requires HTTPS or localhost. Offline caching is limited to the shell, not live account or API data.
+
+## Project structure and page URLs
+
+- `admin/` contains named admin entry pages such as `products.php`, `pages.php` and `settings.php`, plus the admin panel UI in `panel.js`.
+- `website/` contains named public/member entry pages such as `about.php`, `products.php`, `login.php` and `register.php`, plus public/member presentation code in `pages.js`.
+- `includes/site-shell.php`, `index.html` and `assets/` provide the shared layout, navigation and styling; `api/` provides authenticated PHP endpoints backed by MySQL. Existing `/#admin` and other hash bookmarks remain supported.
+- Pages created in the CMS are stored in the MySQL `pages` table under their unique slug and served at `website/page.php?slug=your-page-name`. They do not create executable PHP files on the server. Products, settings, slides and other admin records are stored in their respective MySQL tables; uploaded media files are in `uploads/`, with their references stored in MySQL.
+
+### If admin changes are not saved
+
+1. Make sure the site is served by PHP and that `api/config.php` points to the intended, persistent MySQL database. Import the schema and all required migrations in order, and create the administrator as described above. A static preview is not connected to a database.
+2. Open `api/index.php?action=bootstrap` on the same site: it should return JSON, not a PHP source file, missing-configuration message or database error. Check PHP/server logs and the configured DB user’s permissions if it does not. Do not share database credentials.
+3. Sign in at `/admin/index.php`, save a small change, and reload that page to confirm it. If a save reports a follow-up or connection error, reload and check before retrying; an earlier step may already have been saved. File uploads additionally require a writable `uploads/` directory.
+4. Back up the database and configuration key. Do not use an ephemeral test database for real content; replacing or resetting a database will remove its saved records.
 
 ## Workflows
 
@@ -30,7 +44,7 @@ Take the website, background workers and royalty cron offline. Make and verify b
 
 ## Verification
 
-`tests/integration.py` is a destructive smoke test for a **fresh disposable database** and running PHP server. Import all six SQL files, configure a test encryption key, create the test admin as above, then run `BASE_URL=http://127.0.0.1:8000 ADMIN_EMAIL=admin@example.com ADMIN_PASSWORD='...' python3 tests/integration.py`. Set `BUSINESS_TIMEZONE` if different from Asia/Kolkata. Tests cover authenticator verification and one-time recovery codes, role authorization, uploads, content sanitization, sponsor credits, duplicate receipts, order confirmation, refunds, royalties, KYC, CSV and payouts. To test email verification with a local test mail sink, configure PHP `sendmail_path` to write mail to a disposable file and set `TEST_MAIL_CAPTURE` to that file. Never use a test sink for real mail. Run `php tests/crypto.php` for encryption tamper checks, `php tests/mfa.php` for TOTP vectors and `php tests/refund-math.php` for partial-refund rounding checks. Do not run it against real customer data.
+`tests/integration.py` is a destructive smoke test for a **fresh disposable database** and running PHP server. Import all six SQL files, configure a test encryption key, create the test admin as above, then run `BASE_URL=http://127.0.0.1:8000 ADMIN_EMAIL=admin@example.com ADMIN_PASSWORD='...' python3 tests/integration.py`. Set `BUSINESS_TIMEZONE` if different from Asia/Kolkata. Tests cover persistence across sessions, invalid record IDs, authenticator verification and one-time recovery codes, role authorization, uploads, content sanitization, sponsor credits, duplicate receipts, order confirmation, refunds, royalties, KYC, CSV and payouts. To test email verification with a local test mail sink, configure PHP `sendmail_path` to write mail to a disposable file and set `TEST_MAIL_CAPTURE` to that file. Never use a test sink for real mail. Run `php tests/crypto.php` for encryption tamper checks, `php tests/mfa.php` for TOTP vectors, `php tests/refund-math.php` for partial-refund rounding checks and `node --test tests/admin-route.cjs tests/navigation.cjs` for route checks. Do not run it against real customer data.
 
 ## Before production
 
