@@ -1,0 +1,5 @@
+# Uploaded files must never be executed as server-side scripts.
+Options -ExecCGI
+<FilesMatch "\.(php[0-9]?|phtml|phar|cgi|pl|sh)$">
+  Require all denied
+</FilesMatch>

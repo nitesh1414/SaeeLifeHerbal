@@ -1,0 +1,6 @@
+/api/config.php
+/uploads/*
+!/uploads/.gitkeep
+
+!/uploads/.htaccess
+/node_modules/
