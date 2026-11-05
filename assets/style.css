@@ -5,3 +5,6 @@
 .cart-link{font-size:12px;font-weight:600;color:#235e39}.cart-link span{display:inline-grid;place-items:center;background:#edf5e6;border-radius:50%;width:22px;height:22px;margin-left:4px}.basket{max-width:850px;margin:auto;border:1px solid #e6eee3}.quantity{width:65px;padding:7px;border:1px solid #dce7dc;border-radius:5px}@media(max-width:760px){.cart-link{display:none}}
 .preview-banner{padding:9px 20px;background:#fff8e4;color:#82651f;text-align:center;font-size:11px;line-height:1.4}.button:disabled{opacity:.5;cursor:not-allowed;transform:none}
 .mfa-secret{padding:14px;background:#eff6eb;border-radius:6px;overflow-wrap:anywhere}.recovery-codes{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:20px 0}.recovery-codes code{background:#f1f6ee;padding:10px;border-radius:5px;overflow-wrap:anywhere}
+
+/* The public header is not part of the admin experience. */
+html.admin-route .announcement,html.admin-route .header{display:none}
