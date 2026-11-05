@@ -50,6 +50,8 @@ admin.call('payout_status',{'id':request['id'],'status':'approved'})
 admin.call('payout_status',{'id':request['id'],'status':'rejected'})
 admin.call('payout_status',{'id':request['id'],'status':'rejected'},400)
 assert float(a.call('member_dashboard')['user']['wallet'])==55
+with admin.opener.open(BASE+'payout_csv') as response: csv=response.read().decode()
+assert '12345678' in csv and 'ABCD0123456' in csv
 member=next(x for x in admin.call('admin_members') if x['member_code']==ac)
 a.call('update_kyc',{**kyc,'bank_account':'87654321'})
 admin.call('verify_kyc',{'id':member['id'],'status':'verified','fingerprint':member['fingerprint']},400)
@@ -60,6 +62,16 @@ admin.call('order_status',{'id':order['id'],'status':'confirmed','receipt_refere
 admin.call('order_status',{'id':order['id'],'status':'confirmed','receipt_reference':'duplicate'},400)
 assert float(a.call('member_dashboard')['user']['wallet'])==75
 assert float(b.call('member_dashboard')['user']['wallet'])==105
+# Refunds only record an external transfer; ledger reversal is atomic and idempotent.
+admin.call('refund_order',{'id':order['id'],'refund_reference':'refund-'+uuid.uuid4().hex,'reason':'Test return'})
+admin.call('refund_order',{'id':order['id'],'refund_reference':'refund-'+uuid.uuid4().hex,'reason':'Duplicate'},400)
+assert float(a.call('member_dashboard')['user']['wallet'])==55
+assert float(b.call('member_dashboard')['user']['wallet'])==75
+standalone=next(x for x in admin.call('admin_purchases') if x['receipt_reference']==receipt)
+admin.call('refund_purchase',{'id':standalone['id'],'refund_reference':'refund-'+uuid.uuid4().hex,'reason':'Test return'})
+assert float(a.call('member_dashboard')['user']['wallet'])==15
+assert float(b.call('member_dashboard')['user']['wallet'])==15
+assert any(x['action']=='refund_order' for x in admin.call('admin_audit'))
 # Admin-only MIME-checked image upload.
 boundary='----saee-test-boundary';image=open('assets/icon-512.png','rb').read()
 body=(f'--{boundary}\r\nContent-Disposition: form-data; name="file"; filename="icon.png"\r\nContent-Type: image/png\r\n\r\n'.encode()+image+f'\r\n--{boundary}--\r\n'.encode())
