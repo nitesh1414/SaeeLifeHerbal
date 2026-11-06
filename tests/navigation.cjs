@@ -24,6 +24,7 @@ test('named admin and public pages work under a subdirectory', () => {
   assert.equal(b.window.currentRoute(),'admin/products');
   b.window.navigate('login');assert.equal(b.href(),'https://example.test/shop/website/login.php');
   assert.equal(b.window.currentRoute(),'login');
+  b.window.navigate('opportunity');assert.equal(b.href(),'https://example.test/shop/website/opportunity.php');assert.equal(b.window.currentRoute(),'opportunity');
   b.window.navigate('admin/pages');assert.equal(b.href(),'https://example.test/shop/admin/pages.php');
   assert.equal(b.window.currentRoute(),'admin/pages');
 });
@@ -37,7 +38,7 @@ test('legacy hashes, CMS slugs, product IDs and email tokens round-trip', () => 
 });
 test('all named entry points and PWA start pages exist', () => {
   for(const name of 'index overview products pages slides settings marketing socials members orders purchases refunds rules payouts audit staff security'.split(' '))assert.ok(fs.existsSync(path.join(root,'admin',name+'.php')),name);
-  for(const name of 'index about products product community contact cart login register forgot reset verify-email page'.split(' '))assert.ok(fs.existsSync(path.join(root,'website',name+'.php')),name);
+  for(const name of 'index about products product community contact opportunity cart login register forgot reset verify-email page'.split(' '))assert.ok(fs.existsSync(path.join(root,'website',name+'.php')),name);
   assert.equal(JSON.parse(read('manifest.webmanifest')).start_url,'./website/index.php');
   assert.equal(JSON.parse(read('admin.webmanifest')).start_url,'./admin/index.php');
   const html=read('index.html');

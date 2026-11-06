@@ -1,6 +1,9 @@
 // Shared form, upload and navigation handlers for the website and admin.
 async function uploadFile(file){let body=new FormData();body.append('file',file);let r=await fetch('api/index.php?action=upload',{method:'POST',headers:{'X-CSRF-Token':window.csrf||''},body});let j=await r.json();if(!r.ok)throw Error(j.error||'Upload failed');return j}
 document.addEventListener('click',async e=>{
+ if(e.target.closest('[data-copy-referral]')){let input=document.querySelector('#referral-link');try{await navigator.clipboard.writeText(input.value);toast('Referral link copied')}catch{input.focus();input.select();toast('Select and copy your referral link')}return}
+ const network=e.target.closest('[data-network-id]');if(network){loadNetwork(network.dataset.networkId,network.dataset.networkCursor||0);return}
+ const category=e.target.closest('[data-catalog-category]');if(category){catalogCategory=category.dataset.catalogCategory;let url=new URL(location.href);if(catalogCategory)url.searchParams.set('cat',categorySlug(catalogCategory));else url.searchParams.delete('cat');history.replaceState(null,'',url.href);updateCatalog();return}
  if(e.target.closest('.menu-toggle'))document.querySelector('.desktop-nav').classList.toggle('mobile-menu');
  if(e.target.closest('.desktop-nav a'))document.querySelector('.desktop-nav').classList.remove('mobile-menu');
  const tab=e.target.closest('[data-tab]');if(tab){let dest='admin/'+tab.dataset.tab;if(currentRoute()===dest)render();else navigate(dest);return}
@@ -50,3 +53,5 @@ document.addEventListener('DOMContentLoaded',updateCartCount);
 function recoveryForm(token=''){return page(token?'Reset your password':'Password recovery',token?'Choose a new password.':'We will send a reset link if an account exists.',`<div class="form-card"><h2>${token?'Choose a new password':'Forgot your password?'}</h2><form id="${token?'reset-form':'forgot-form'}">${token?`<input type="hidden" name="token" value="${esc(token)}">${field('New password (at least 8 characters)','password','password')}`:field('Email address','email','email')}<button class="button">${token?'Reset password':'Send reset link'}</button></form><p class="form-note"><a href="#login">Back to sign in</a></p></div>`)}
 
 function emailVerificationForm(token=''){return page('Confirm your email','Verify your Saee Life Herbal account email address.',`<div class="form-card"><h2>Verify your email</h2><p>Confirm the address associated with this verification link.</p><form id="verification-confirm-form"><input type="hidden" name="token" value="${esc(token)}"><button class="button">Verify email</button></form></div>`)}
+
+document.addEventListener('input',e=>{if(e.target.matches('[data-catalog-search]')){catalogSearch=e.target.value;updateCatalog()}});

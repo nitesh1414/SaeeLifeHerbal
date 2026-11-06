@@ -1,5 +1,5 @@
-const CACHE='saee-shell-v8';
-const SHELL=['./','./index.html','./website/index.php','./admin/index.php','./manifest.webmanifest','./admin.webmanifest','./assets/style.css','./assets/admin-route.js','./assets/navigation.js','./website/pages.js','./admin/panel.js','./assets/app.js','./assets/extended.js','./assets/icon-512.png','./assets/logo.png','./assets/hero-farm.jpg','./assets/product-bottle.jpg','./assets/products.jpg'];
+const CACHE='saee-shell-v9';
+const SHELL=['./','./index.html','./website/index.php','./admin/index.php','./manifest.webmanifest','./admin.webmanifest','./assets/style.css','./assets/admin-route.js','./assets/navigation.js','./website/pages.js','./admin/panel.js','./assets/app.js','./assets/extended.js','./assets/icon-512.png','./assets/logo.png','./assets/herbal-wellness-hero.jpg','./assets/hero-farm.jpg','./assets/product-bottle.jpg','./assets/products.jpg'];
 self.addEventListener('install',e=>e.waitUntil(caches.open(CACHE).then(c=>c.addAll(SHELL))));
 self.addEventListener('activate',e=>e.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k!==CACHE).map(k=>caches.delete(k))))));
 self.addEventListener('fetch',e=>{

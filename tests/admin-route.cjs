@@ -32,6 +32,9 @@ test('admin header styles and early script are included in the cached shell', ()
   assert.ok(html.indexOf('assets/admin-route.js') < html.indexOf('assets/style.css'));
   assert.match(css, /html\.admin-route \.announcement\s*,\s*html\.admin-route \.header\s*\{\s*display\s*:\s*none\s*\}/);
   assert.ok(sw.includes('./assets/admin-route.js'));
+  assert.match(css, /html\.admin-route \.site-footer/);
+  assert.match(css, /html\.admin-route \.mobile-bar/);
+  assert.match(css, /html\.admin-route \.utility-bar/);
 });
 
 test('header visibility follows named pages and history navigation', () => {

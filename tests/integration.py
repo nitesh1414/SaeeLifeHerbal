@@ -23,8 +23,10 @@ admin.call('save_settings',{'home_title':'Managed home','feature_image_url':'ass
 settings=admin.call('admin_settings');assert settings['home_title']=='Managed home' and settings['company_sponsor_code']=='COMPANY'
 admin.call('save_rule',{'kind':'milestone','threshold':1,'amount':10})
 admin.call('save_rule',{'kind':'royalty','threshold':1,'amount':5})
-p=admin.call('save_product',{'name':'Integration product','category':'Test','description':'Test','price':100,'direct_commission':30,'grand_commission':20,'content':'<p onclick="bad()">Safe<script>bad()</script></p>'})
+p=admin.call('save_product',{'name':'Integration product','category':'Test','description':'Test','price':100,'mrp':150,'direct_commission':30,'grand_commission':20,'content':'<p onclick="bad()">Safe<script>bad()</script></p>'})
 products=admin.call('bootstrap')['products'];assert next(x for x in products if x['id']==p['id'])['content']=='<p>Safe</p>'
+assert float(next(x for x in products if x['id']==p['id'])['mrp'])==150
+admin.call('save_product',{'name':'Invalid MRP','category':'Test','description':'Test','price':100,'mrp':99,'direct_commission':0,'grand_commission':0,'content':''},400)
 admin.call('save_page',{'slug':'integration-test','title':'Test page','content':'<p onclick="bad()">Safe<script>bad()</script></p>','published':'on'})
 assert next(x for x in admin.call('bootstrap')['pages'] if x['slug']=='integration-test')['content']=='<p>Safe</p>'
 # Save all admin-managed content, then read it back in a new session.
@@ -61,6 +63,7 @@ content.call('admin_products');content.call('admin_members',expect=403);content.
 content.call('save_settings',{'home_title':'Editorial change','nav_home':'Start'});content.call('save_settings',{'company_sponsor_code':'COMPANY'},403);content.call('save_settings',{'feature_image_url':'assets/products.jpg'},403)
 content.call('save_product',{'id':p['id'],'name':'Integration product','category':'Test','description':'Test','price':100,'direct_commission':31,'grand_commission':20,'content':'<p>Safe</p>'},403)
 content.call('save_product',{'id':p['id'],'name':'Integration product','category':'Test','description':'Test','price':100,'direct_commission':30,'grand_commission':20,'content':'<p>Safe</p>'})
+assert float(next(x for x in content.call('admin_products') if x['id']==p['id'])['mrp'])==150 # legacy payload preserves MRP
 ops.call('admin_members');ops.call('admin_payouts',expect=403);ops.call('record_purchase',{},403);ops.call('order_status',{},403)
 finance.call('admin_payouts');finance.call('admin_staff',expect=403);finance.call('verify_kyc',{},403)
 owner=next(x for x in admin.call('admin_staff') if x['admin_role']=='owner')
@@ -72,6 +75,19 @@ finance.call('admin_login',{'email':'finance@example.test','password':'StaffPass
 assert any(x['action']=='create_staff' for x in admin.call('admin_audit'))
 
 a,ac=register('Alice');b,bc=register('Bob',ac);c,cc=register('Carol',bc)
+# Member ID login and private, unlimited-depth unilevel navigation (no binary legs).
+by_code=Client();by_code.call('login',{'email':ac,'password':'Testing123!'})
+a_id=a.call('member_dashboard')['user']['id'];b_id=b.call('member_dashboard')['user']['id']
+root=a.call('member_network');assert [x['member_code'] for x in root['members']]==[bc]
+assert set(root['members'][0])=={'id','member_code','name','created_at'}
+child=a.call('member_network&parent='+str(b_id));assert [x['member_code'] for x in child['members']]==[cc]
+c.call('member_network&parent='+str(a_id),expect=403)
+anon.call('member_network',expect=401)
+ops.call('member_network',expect=403)
+a.call('member_network&parent=not-an-id',expect=400)
+limiter=Client()
+for _ in range(5):limiter.call('login',{'email':cc.lower(),'password':'incorrect'},401)
+limiter.call('login',{'email':cc,'password':'incorrect'},429) # casing cannot bypass ID throttling
 # Optional local test mail sink: configure PHP sendmail_path to append to this file.
 mail_capture=os.environ.get('TEST_MAIL_CAPTURE')
 if mail_capture:
@@ -135,7 +151,9 @@ assert float(a.call('member_dashboard')['user']['wallet'])==15
 assert float(b.call('member_dashboard')['user']['wallet'])==15
 admin.call('refund_purchase',{'id':standalone['id'],'refund_reference':'refund-'+uuid.uuid4().hex,'reason':'Excess','quantity':1,'customer_amount':'100'},400)
 # A partial order-line return updates the order; refunding the remaining units completes it.
-p2=admin.call('save_product',{'name':'Second product','category':'Test','description':'Test','price':90,'direct_commission':7,'grand_commission':4,'content':''})
+p2=admin.call('save_product',{'name':'Second product','category':'Test','description':'Test','price':90,'mrp':100,'direct_commission':7,'grand_commission':4,'content':''})
+admin.call('save_product',{'id':p2['id'],'name':'Second product','category':'Test','description':'Test','price':90,'mrp':'','direct_commission':7,'grand_commission':4,'content':''})
+assert next(x for x in admin.call('bootstrap')['products'] if x['id']==p2['id'])['mrp'] is None
 order2=c.call('place_order',{'shipping_address':'Test delivery','contact_phone':'1234567890','items':[{'product_id':p['id'],'quantity':2},{'product_id':p2['id'],'quantity':3}]})
 admin.call('order_status',{'id':order2['id'],'status':'confirmed','receipt_reference':'order-'+uuid.uuid4().hex})
 line=next(x for x in admin.call('admin_purchases') if x['order_id']==order2['id'] and x['product_id']==p['id'])
@@ -171,6 +189,11 @@ if mail_capture:
     recovery.call('reset_password',{'token':reset_token.group(1),'password':'short123'},400)
     recovery.call('reset_password',{'token':reset_token.group(1),'password':'NewStaffPassword123!'})
     content.call('admin_overview',expect=401)
+# More than one page of direct referrals is accessible without a binary placement limit.
+for n in range(51):register('Page'+str(n),bc)
+first=b.call('member_network');assert len(first['members'])==50 and first['next_cursor']
+second=b.call('member_network&cursor='+str(first['next_cursor']));assert len(second['members'])==2 and second['next_cursor'] is None
+assert not set(x['id'] for x in first['members']) & set(x['id'] for x in second['members'])
 # Owner opt-in TOTP, one-time recovery codes, replay prevention, and session revocation.
 assert not admin.call('admin_security')['enabled']
 other_admin=Client();other_admin.call('admin_login',{'email':EMAIL,'password':PASSWORD})
@@ -198,4 +221,4 @@ challenge2.call('mfa_disable',{'password':'incorrect','code':enabled['recovery_c
 challenge2.call('mfa_disable',{'password':owner_password,'code':enabled['recovery_codes'][2]})
 assert not challenge2.call('admin_security')['enabled'];challenge2.call('logout',{})
 last=Client();assert 'user' in last.call('admin_login',{'email':EMAIL,'password':owner_password})
-print('PASS: admin persistence, MFA, role authorization, email/recovery (if mail sink enabled), upload, order checkout and confirmation, CMS sanitization, registration, milestone, 2-level purchase, duplicate receipt, royalty, KYC, partial refunds and payout transitions')
+print('PASS: unilevel network privacy, member ID login, product MRP, admin persistence, MFA, role authorization, email/recovery (if mail sink enabled), upload, order checkout and confirmation, CMS sanitization, registration, milestone, 2-level purchase, duplicate receipt, royalty, KYC, partial refunds and payout transitions')

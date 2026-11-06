@@ -65,6 +65,28 @@ function handleFeature(string $action,array $data) {
     case 'admin_pages': admin();return query('SELECT * FROM pages ORDER BY id')->fetchAll();
     case 'admin_socials': admin();return query('SELECT * FROM social_links ORDER BY id')->fetchAll();
     case 'admin_media': admin();return query('SELECT * FROM product_media ORDER BY position,id')->fetchAll();
+    case 'member_network':
+        // A member may browse only their own descendants; never return contact or KYC data.
+        $u=logged();if(!empty($u['is_admin']))fail('Member account required.',403);
+        $parent=filter_var($_GET['parent']??$u['id'],FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);
+        $cursor=filter_var($_GET['cursor']??0,FILTER_VALIDATE_INT,['options'=>['min_range'=>0]]);
+        if($parent===false||$cursor===false)fail('Invalid network request.');
+        $current=$parent;$seen=[];$authorized=false;
+        // Walk to the root even after finding the caller so a corrupt cycle cannot
+        // turn an ancestor into an apparent descendant.
+        while($current){
+            if(isset($seen[$current]))fail('Network unavailable.',403);$seen[$current]=true;
+            if($current===(int)$u['id'])$authorized=true;
+            $node=one('SELECT sponsor_id FROM members WHERE id=?',[$current]);
+            if(!$node)fail('This network is not available.',403);
+            $current=(int)($node['sponsor_id']??0);
+        }
+        if(!$authorized)fail('This network is not available.',403);
+        $owner=one('SELECT id,member_code,name FROM members WHERE id=?',[$parent]);
+        if(!$owner)fail('This network is not available.',403);
+        $items=query('SELECT id,member_code,name,created_at FROM members WHERE sponsor_id=? AND is_admin=0 AND id>? ORDER BY id ASC LIMIT 51',[$parent,$cursor])->fetchAll();
+        $hasMore=count($items)>50;if($hasMore)array_pop($items);
+        return ['parent'=>$owner,'members'=>$items,'next_cursor'=>$hasMore?(int)end($items)['id']:null];
     case 'member_dashboard':
         $u=logged();return ['user'=>cleanUser($u),'direct_count'=>one('SELECT COUNT(*) n FROM members WHERE sponsor_id=?',[$u['id']])['n'],'ledger'=>query('SELECT amount,kind,created_at FROM wallet_ledger WHERE member_id=? ORDER BY id DESC LIMIT 100',[$u['id']])->fetchAll(),'payouts'=>query('SELECT id,amount,status,created_at,note FROM payouts WHERE member_id=? ORDER BY id DESC LIMIT 100',[$u['id']])->fetchAll(),'orders'=>query('SELECT id,total,status,created_at FROM orders WHERE member_id=? ORDER BY id DESC LIMIT 100',[$u['id']])->fetchAll()];
     case 'save_page':

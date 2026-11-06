@@ -4,7 +4,7 @@
   const rootUrl = new URL(document.baseURI);
   const baseElement = document.querySelector('base');
   if (baseElement) baseElement.href = rootUrl.href;
-  const publicPages = new Set(['about','products','community','contact','cart','login','register','forgot']);
+  const publicPages = new Set(['about','products','community','contact','opportunity','cart','login','register','forgot']);
   const adminPages = new Set(['overview','products','pages','slides','settings','marketing','socials','members','orders','purchases','refunds','rules','payouts','audit','staff','security']);
   function routeFromLocation() {
     if (location.hash.length > 1) return location.hash.slice(1); // old bookmarks and email links
